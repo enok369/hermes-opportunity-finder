@@ -1,0 +1,40 @@
+# Environment & secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Hermes local data (sensitive)
+.hermes/
+~/.hermes/
+
+# Docker volumes
+model_cache/
+hermes_home/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Opportunities (local only)
+opportunities/
