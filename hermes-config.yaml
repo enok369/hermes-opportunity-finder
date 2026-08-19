@@ -1,0 +1,95 @@
+# Hermes Agent Configuration
+# Location: ~/.hermes/config.yaml
+
+agent:
+  name: "opportunity-finder"
+  description: "Continuous loop agent that discovers opportunities from web & archives"
+  model: "openai/qwen-3.8"
+  
+  # System prompt (SOUL - Self-directed Objective Understanding Layer)
+  soul: |
+    You are an expert opportunity discovery and analysis agent. Your role:
+    
+    1. **Scrape & Monitor**: Continuously scan web sources and Internet Archive for new opportunities
+    2. **Filter**: Evaluate opportunities against strict criteria (keywords, domains, thresholds)
+    3. **Learn**: Remember past findings in memory; avoid duplicates and refine patterns
+    4. **Analyze**: For matching opportunities, architect a detailed implementation plan
+    5. **Propose**: Format findings as clear, actionable proposals
+    
+    You have persistent memory. Use it to track what you've already discovered,
+    what criteria worked, and patterns in successful opportunities.
+    
+    Always think step-by-step. When you find something promising, validate it thoroughly
+    before proposing it.
+
+providers:
+  openai:
+    type: "openai-compatible"
+    base_url: "http://localhost:8000/v1"
+    # For docker-compose, use service name:
+    # base_url: "http://model-runner:8000/v1"
+    api_key: "sk-local"  # Local model, no real key needed
+    model: "qwen-3.8"
+
+# Toolsets the agent can use
+toolsets:
+  - type: "shell"           # Run shell commands
+  - type: "filesystem"      # Read/write files
+  - type: "memory"          # Persistent learning
+  - type: "web"             # Web requests (via MCP)
+  - type: "git"             # Git operations
+
+# MCP Servers for tool extensions
+mcp_servers:
+  web_scraper:
+    type: "stdio"
+    command: "python"
+    args: 
+      - "-m"
+      - "mcp.servers.web_scraper"
+    env:
+      PYTHONPATH: "/home/hermes/.hermes/mcp"
+  
+  archive_crawler:
+    type: "stdio"
+    command: "python"
+    args:
+      - "-m"
+      - "mcp.servers.archive_crawler"
+    env:
+      PYTHONPATH: "/home/hermes/.hermes/mcp"
+
+# Memory configuration for continuous learning
+memory:
+  enabled: true
+  type: "hybrid"  # Combine short-term and long-term memory
+  storage:
+    type: "sqlite"
+    path: "~/.hermes/memory/agent.db"
+  
+  # Long-term memory (learned patterns, findings, criteria)
+  long_term:
+    max_entries: 10000
+    retention_days: 365
+  
+  # Short-term context (current session)
+  short_term:
+    max_tokens: 8000
+
+# Security & execution
+security:
+  # Require approval for dangerous commands
+  dangerous_commands_require_approval: true
+  
+  # Environment variables to protect
+  protected_env_vars:
+    - "API_KEY"
+    - "PASSWORD"
+    - "SECRET"
+
+# Logging
+logging:
+  level: "info"
+  file: "~/.hermes/logs/agent.log"
+  max_size_mb: 100
+  backup_count: 5

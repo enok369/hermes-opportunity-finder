@@ -1,0 +1,151 @@
+# Hermes Cron Configuration
+# Location: ~/.hermes/crontab.yaml
+# Defines continuous loops and scheduled tasks
+
+jobs:
+  # Main continuous scraping loop - every 6 hours
+  - name: scrape-opportunities
+    schedule: "0 */6 * * *"  # Every 6 hours
+    agent: opportunity-finder
+    task: |
+      Scrape these sources for new opportunities:
+      1. Hacker News (https://news.ycombinator.com)
+      2. Product Hunt (https://producthunt.com)
+      3. AngelList (https://angel.co)
+      4. Add your custom feeds
+      
+      Return raw opportunities with title, link, and summary.
+    description: "Continuous web scraping for opportunity discovery"
+    retry_on_failure: true
+    retry_count: 2
+
+  # Filtering loop - runs after scraping
+  - name: filter-and-analyze
+    schedule: "30 */6 * * *"  # 30 min after scrape
+    agent: opportunity-finder
+    task: |
+      Filter recent scraped opportunities against these criteria:
+      - Keywords: startup, funding, partnership, grant, acquisition
+      - Exclude: spam, mlm, scam, fake
+      - Min score: 0.6
+      - Max age: 30 days
+      
+      For each match, run the planner to generate an implementation strategy.
+    description: "Filter and plan matched opportunities"
+    depends_on: scrape-opportunities
+    retry_on_failure: true
+
+  # Weekly memory consolidation - learn from patterns
+  - name: consolidate-learning
+    schedule: "0 2 * * 0"  # Weekly, Sunday 2 AM
+    agent: opportunity-finder
+    task: |
+      Analyze this week's matched opportunities:
+      1. What patterns emerged in successful matches?
+      2. Which keywords were most predictive?
+      3. Which sources yielded the best quality?
+      4. Update filtering criteria based on feedback
+      5. Document lessons learned
+      
+      Use this to refine the filter's keyword list and exclusions.
+    description: "Weekly consolidation of learning and pattern analysis"
+    retention_days: 30
+
+  # Daily digest proposal - summarize top opportunities
+  - name: daily-digest
+    schedule: "0 9 * * *"  # Daily at 9 AM
+    agent: opportunity-finder
+    task: |
+      For the top 3 matched opportunities from the past 24 hours:
+      1. Generate detailed implementation plans if not done
+      2. Format as proposals with next steps
+      3. Save proposals to ~/opportunities/proposals/<date>/
+      4. Print summary to stdout
+      
+      Focus on opportunities with score >= 0.75
+    description: "Daily digest of top opportunities"
+    retention_days: 365
+
+  # Manual feedback loop - user training signal
+  - name: process-user-feedback
+    schedule: "0 12 * * *"  # Daily at noon
+    agent: opportunity-finder
+    task: |
+      Check for user feedback on opportunities:
+      1. Scan ~/opportunities/feedback/ for new files
+      2. For each "relevant" feedback, update keyword list
+      3. For each "false_positive", add to exclude list
+      4. Log learning events to memory
+      
+      This trains the filter to improve over time.
+    description: "Process user feedback to improve filtering"
+    skip_if_no_data: true
+
+  # Archive the old opportunities weekly
+  - name: archive-old-opportunities
+    schedule: "0 3 * * 1"  # Weekly, Monday 3 AM
+    agent: opportunity-finder
+    task: |
+      Archive opportunities older than 30 days:
+      1. Move stale proposals to ~/opportunities/archive/
+      2. Keep memory of high-scoring opportunities
+      3. Export statistics summary
+    description: "Archive and cleanup old opportunities"
+    retention_days: 90
+
+  # Monthly comprehensive analysis
+  - name: monthly-analysis
+    schedule: "0 1 1 * *"  # First day of month, 1 AM
+    agent: opportunity-finder
+    task: |
+      Generate comprehensive monthly report:
+      1. Total opportunities found
+      2. Conversion rate (found → actual action taken)
+      3. Top opportunity types
+      4. Best performing sources and keywords
+      5. Recommendations for next month
+      6. Save to ~/opportunities/reports/
+    description: "Monthly comprehensive analysis and reporting"
+    retention_days: 365
+
+# Error handling
+error_handling:
+  on_failure: "retry"  # Retry failed jobs
+  retry_delay_seconds: 300
+  max_retries: 3
+  notify_on_failure: true
+  failure_notification_template: |
+    ⚠️ Hermes Opportunity Finder - Job Failed
+    Job: {{job_name}}
+    Error: {{error_message}}
+    Retry attempt: {{retry_count}}/3
+
+# Logging
+logging:
+  level: "info"
+  format: "json"
+  file: "~/.hermes/logs/cron.log"
+  max_size_mb: 50
+  backup_count: 5
+
+# Resource limits (important for continuous operation)
+resource_limits:
+  max_concurrent_jobs: 2  # Don't hammer sources
+  timeout_seconds: 300
+  memory_limit_mb: 2048  # Prevent memory leaks
+
+# Notifications (optional - setup as needed)
+notifications:
+  enabled: false
+  channels:
+    - type: "email"
+      to: "your-email@example.com"
+      on_events: ["high_score_found", "daily_digest"]
+    
+    # - type: "slack"
+    #   webhook: "https://hooks.slack.com/..."
+    #   on_events: ["high_score_found"]
+    
+    # - type: "discord"
+    #   webhook: "https://discord.com/api/..."
+    #   on_events: ["daily_digest"]

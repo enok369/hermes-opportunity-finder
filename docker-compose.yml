@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # Docker Model Runner - runs Qwen 3.8 locally on RTX 4090
+  model-runner:
+    image: docker/model-runner:latest
+    container_name: qwen-model-runner
+    ports:
+      - "8000:8000"
+    environment:
+      # Point to Qwen 3.8 quantized model from Hugging Face
+      # You can swap for abliterated/uncensored variant as needed
+      MODEL: "Qwen/Qwen2.5-32B-Instruct-GGUF"
+      MODEL_TAG: "Q4_K_M"  # Quantization for 24GB VRAM
+      # Alternative: use a quantized checkpoint
+      # MODEL: "huggingface_hub:Qwen/Qwen2.5-32B-Instruct"
+      PORT: "8000"
+      CUDA_VISIBLE_DEVICES: "0"  # RTX 4090 on GPU 0
+    volumes:
+      - model_cache:/root/.cache/huggingface  # Cache models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Hermes Agent backend - headless server mode
+  hermes-backend:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes-backend
+    ports:
+      - "9119:9119"  # Hermes serve gateway
+    environment:
+      # Point to local Qwen via Model Runner
+      HERMES_MODEL_PROVIDER: "openai"
+      HERMES_MODEL_API_BASE: "http://model-runner:8000/v1"
+      HERMES_MODEL_NAME: "qwen-3.8"
+      
+      # Optional: set credentials if Model Runner requires auth
+      # HERMES_MODEL_API_KEY: "sk-local"
+      
+      # Dashboard auth (for remote connections)
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "admin"
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "changeme"
+      HERMES_DASHBOARD_BASIC_AUTH_SECRET: "your-stable-secret-here"
+      
+      # Persistent storage
+      HERMES_HOME: "/home/hermes/.hermes"
+      
+      # Enable memory for continuous learning
+      HERMES_AGENT_MEMORY_ENABLED: "true"
+      
+    volumes:
+      # Mount local Hermes home for persistent config, skills, memory
+      - ~/.hermes:/home/hermes/.hermes
+      # Or use a named volume for containerized setup:
+      # - hermes_home:/home/hermes/.hermes
+    depends_on:
+      model-runner:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9119/api/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  model_cache:
+  hermes_home:
+
+networks:
+  default:
+    name: hermes-ai-network
