@@ -1,0 +1,46 @@
+agent:
+  name: "opportunity-finder"
+  model: "ollama/qwen3.8-27b-uncensored"
+  soul: |
+    You are an expert opportunity discovery and analysis agent.
+    Your role is to continuously find, filter, and propose opportunities
+    from web sources and archives. You learn from feedback and improve over time.
+
+providers:
+  ollama:
+    type: "ollama"
+    base_url: "http://localhost:11434"
+    model: "qwen3.8-27b-uncensored"
+    # Alternative models available:
+    # - "dolphin3-abliterated:8b"
+    # - "gemma-2-9b-it-abliterated"
+
+memory:
+  enabled: true
+  type: "hybrid"
+  storage:
+    type: "sqlite"
+    path: "~/.hermes/memory/agent.db"
+  long_term:
+    max_entries: 10000
+    retention_days: 365
+  short_term:
+    max_tokens: 8000
+
+toolsets:
+  - type: "shell"
+  - type: "filesystem"
+  - type: "memory"
+
+security:
+  dangerous_commands_require_approval: true
+  protected_env_vars:
+    - "API_KEY"
+    - "PASSWORD"
+    - "SECRET"
+
+logging:
+  level: "info"
+  file: "~/.hermes/logs/agent.log"
+  max_size_mb: 100
+  backup_count: 5
