@@ -1,0 +1,20 @@
+# Dockerfile for Hermes Agent backend
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install Hermes Agent
+RUN pip install --no-cache-dir hermes-agent
+
+# Create app structure
+RUN mkdir -p /home/hermes/.hermes
+
+# Expose port
+EXPOSE 9119
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=30s \
+  CMD curl -f http://localhost:9119/api/status || exit 1
+
+# Run Hermes in serve mode
+CMD ["hermes", "serve", "--host", "0.0.0.0", "--port", "9119"]
